@@ -27,7 +27,8 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Plus
+  Plus,
+  LogOut
 } from 'lucide-react';
 import { CHALLENGES as DEFAULT_CHALLENGES, Challenge, SOUND_EFFECTS, STUDENTS as DEFAULT_STUDENTS } from './constants';
 
@@ -36,7 +37,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export default function App() {
   // Game State
-  const [gameState, setGameState] = useState<'setup' | 'playing'>('setup');
+  const [gameState, setGameState] = useState<'setup' | 'playing' | 'finished'>('setup');
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [students, setStudents] = useState<string[]>([]);
   
@@ -52,6 +53,7 @@ export default function App() {
   // Playing State
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
   const [availableStudents, setAvailableStudents] = useState<string[]>([]);
+  const [availableChallenges, setAvailableChallenges] = useState<Challenge[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showFullList, setShowFullList] = useState(false);
@@ -61,6 +63,16 @@ export default function App() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const bgMusicRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (bgMusicRef.current) {
+        bgMusicRef.current.pause();
+        bgMusicRef.current = null;
+      }
+    };
+  }, []);
 
   const playSound = (soundUrl: string) => {
     if (isMuted) return;
@@ -243,16 +255,30 @@ export default function App() {
     setStudents(finalStudents);
     setChallenges(finalChallenges);
     setAvailableStudents([...finalStudents]);
+    setAvailableChallenges([...finalChallenges]);
     setGameState('playing');
     playSound(SOUND_EFFECTS.click);
     fireConfetti();
   };
 
   const generateChallenge = () => {
+    if (availableChallenges.length === 0 && currentChallenge !== null) {
+      setGameState('finished');
+      playSound(SOUND_EFFECTS.end);
+      fireConfetti(true);
+      return;
+    }
+
     if (availableStudents.length === 0) {
       setAvailableStudents([...students]);
       playSound(SOUND_EFFECTS.click);
       return;
+    }
+
+    // Determine challenge pool
+    let pool = availableChallenges;
+    if (pool.length === 0) {
+      pool = challenges;
     }
 
     playSound(SOUND_EFFECTS.upbeat);
@@ -271,13 +297,22 @@ export default function App() {
     }, 80);
 
     setTimeout(() => {
-      const randomChallengeIndex = Math.floor(Math.random() * challenges.length);
+      const randomChallengeIndex = Math.floor(Math.random() * pool.length);
       const randomStudentIndex = Math.floor(Math.random() * availableStudents.length);
+      
+      const challenge = pool[randomChallengeIndex];
       const student = availableStudents[randomStudentIndex];
       
-      setCurrentChallenge(challenges[randomChallengeIndex]);
+      setCurrentChallenge(challenge);
       setSelectedStudent(student);
+      
+      // Update available lists
       setAvailableStudents(prev => prev.filter(s => s !== student));
+      setAvailableChallenges(() => {
+        const baseList = availableChallenges.length === 0 ? challenges : availableChallenges;
+        return baseList.filter(c => c.id !== challenge.id);
+      });
+
       setIsGenerating(false);
       playSound(SOUND_EFFECTS.generate);
       fireConfetti(true);
@@ -334,7 +369,7 @@ export default function App() {
               <Sparkles className="w-4 h-4" />
               <span>CÀI ĐẶT TRÒ CHƠI</span>
             </motion.div>
-            <h1 className="text-3xl md:text-4xl font-display font-black text-slate-800 uppercase tracking-tight">
+            <h1 className="text-3xl md:text-4xl font-display font-black text-emerald-600 uppercase tracking-tight">
               Chuẩn bị thử thách
             </h1>
           </header>
@@ -541,6 +576,76 @@ export default function App() {
     );
   }
 
+  if (gameState === 'finished') {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-indigo-600 to-purple-700 font-sans flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-white rounded-[2.5rem] p-10 md:p-16 max-w-xl w-full text-center shadow-2xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-2 bg-linear-to-r from-yellow-400 via-orange-500 to-red-500"></div>
+          
+          <motion.div 
+            animate={{ 
+              rotate: [0, 10, -10, 0],
+              scale: [1, 1.1, 1]
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="w-28 h-28 rounded-3xl bg-linear-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white mx-auto mb-8 shadow-xl shadow-orange-200 border-4 border-white"
+          >
+            <Trophy className="w-14 h-14 drop-shadow-md" />
+          </motion.div>
+
+          <h1 className="text-4xl md:text-5xl font-display font-black text-slate-900 mb-4 uppercase tracking-tight">
+            Kết thúc trò chơi
+          </h1>
+          
+          <p className="text-slate-500 mb-12 text-lg md:text-xl font-medium leading-relaxed">
+            Bạn đã hoàn thành tất cả các thử thách!<br/>
+            <span className="text-indigo-600 font-bold">Chúc mừng cả lớp mình! 🥳</span>
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setGameState('setup');
+                setStudentFileLoaded(false);
+                setChallengeFileLoaded(false);
+                setStudentFileName(null);
+                setChallengeFileName(null);
+                setStudents([]);
+                setChallenges([]);
+                setAvailableChallenges([]);
+                setTimeLeft(null);
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                  timerRef.current = null;
+                }
+              }}
+              className="py-4 bg-linear-to-r from-indigo-600 to-indigo-700 text-white rounded-2xl font-display font-bold text-lg shadow-lg shadow-indigo-200 flex items-center justify-center gap-3 cursor-pointer"
+            >
+              <RotateCcw className="w-5 h-5" />
+              Cài đặt lại
+            </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.location.reload()}
+              className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-display font-bold text-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-3 cursor-pointer"
+            >
+              <LogOut className="w-5 h-5" />
+              Thoát khỏi trò chơi
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-20">
       {/* Header */}
@@ -563,21 +668,18 @@ export default function App() {
                 setChallengeFileName(null);
                 setStudents([]);
                 setChallenges([]);
+                setAvailableChallenges([]);
+                setTimeLeft(null);
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                  timerRef.current = null;
+                }
               }}
               className="p-1.5 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors text-xs font-bold flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               Cài đặt lại
             </motion.button>
-
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-sm font-medium"
-            >
-              <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span>AI Classroom Fun</span>
-            </motion.div>
 
             <motion.button
               initial={{ opacity: 0, y: -20 }}
@@ -637,6 +739,11 @@ export default function App() {
                   <RotateCcw className="w-6 h-6 animate-spin" />
                   Đang tạo...
                 </>
+              ) : availableChallenges.length === 0 && currentChallenge !== null ? (
+                <>
+                  <Trophy className="w-6 h-6" />
+                  Kết thúc
+                </>
               ) : availableStudents.length === 0 ? (
                 <>
                   <RotateCcw className="w-6 h-6" />
@@ -663,13 +770,24 @@ export default function App() {
                   exit={{ opacity: 0, scale: 0.5, y: -20 }}
                   className="mt-6 flex flex-col items-center w-full"
                 >
-                  <div className="flex items-center justify-between w-full max-w-md mb-2">
-                    <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Học sinh thực hiện:</p>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">
-                        Còn lại: {availableStudents.length} / {students.length}
-                      </span>
+                  <div className="flex flex-col gap-2 w-full max-w-md mb-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Học sinh:</p>
+                      <div className="flex items-center gap-1.5 px-3 py-0.5 bg-slate-100 rounded-full border border-slate-200">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">
+                          Còn lại: {availableStudents.length} / {students.length}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Câu hỏi:</p>
+                      <div className="flex items-center gap-1.5 px-3 py-0.5 bg-slate-100 rounded-full border border-slate-200">
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">
+                          Còn lại: {availableChallenges.length === 0 && currentChallenge ? 0 : (availableChallenges.length || challenges.length)} / {challenges.length}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <motion.div 
