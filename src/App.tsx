@@ -49,6 +49,7 @@ export default function App() {
   const [studentFileName, setStudentFileName] = useState<string | null>(null);
   const [challengeFileName, setChallengeFileName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [challengeLimit, setChallengeLimit] = useState<number>(0);
 
   // Playing State
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
@@ -250,7 +251,11 @@ export default function App() {
 
   const startGame = () => {
     const finalStudents = students.length > 0 ? students : DEFAULT_STUDENTS;
-    const finalChallenges = challenges.length > 0 ? challenges : DEFAULT_CHALLENGES;
+    let finalChallenges = challenges.length > 0 ? challenges : DEFAULT_CHALLENGES;
+    
+    if (challengeLimit > 0) {
+      finalChallenges = finalChallenges.slice(0, challengeLimit);
+    }
     
     setStudents(finalStudents);
     setChallenges(finalChallenges);
@@ -467,6 +472,43 @@ export default function App() {
                     </>
                   )}
                 </label>
+              </div>
+
+              <div className="glass-card rounded-3xl p-8 border-2 border-dashed border-orange-200 hover:border-orange-400 transition-colors">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-md">
+                    <List className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">Số lượng thử thách</h3>
+                    <p className="text-xs text-slate-500">Giới hạn số câu hỏi cho lượt chơi này</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max={challenges.length > 0 ? challenges.length : 50} 
+                    value={challengeLimit} 
+                    onChange={(e) => setChallengeLimit(parseInt(e.target.value))}
+                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                  />
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max={challenges.length > 0 ? challenges.length : 100}
+                      value={challengeLimit} 
+                      onChange={(e) => setChallengeLimit(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-16 px-2 py-1 text-center font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                    />
+                    <span className="text-xs font-bold text-slate-400 uppercase">Câu</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-400 font-medium">
+                  * 0 = Sử dụng tất cả câu hỏi ({challenges.length > 0 ? challenges.length : 'Mặc định'})
+                </p>
               </div>
 
               {uploadError && (
