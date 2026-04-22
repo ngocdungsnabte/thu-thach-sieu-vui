@@ -28,7 +28,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Plus,
-  LogOut
+  LogOut,
+  Trash2
 } from 'lucide-react';
 import { CHALLENGES as DEFAULT_CHALLENGES, Challenge, SOUND_EFFECTS, STUDENTS as DEFAULT_STUDENTS } from './constants';
 
@@ -247,6 +248,11 @@ export default function App() {
 
   const updateChallenge = (id: number, field: keyof Challenge, value: any) => {
     setChallenges(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  };
+
+  const deleteChallenge = (id: number) => {
+    setChallenges(prev => prev.filter(c => c.id !== id));
+    playSound(SOUND_EFFECTS.click);
   };
 
   const startGame = () => {
@@ -575,12 +581,21 @@ export default function App() {
                           #{c.id}
                         </span>
                         <div className="flex-1 space-y-3">
-                          <textarea
-                            value={c.content}
-                            onChange={(e) => updateChallenge(c.id, 'content', e.target.value)}
-                            className="w-full text-slate-700 font-medium leading-relaxed bg-transparent border-none focus:ring-0 p-0 resize-none custom-scrollbar cursor-text"
-                            rows={2}
-                          />
+                          <div className="flex items-start justify-between gap-2">
+                            <textarea
+                              value={c.content}
+                              onChange={(e) => updateChallenge(c.id, 'content', e.target.value)}
+                              className="flex-1 text-slate-700 font-medium leading-relaxed bg-transparent border-none focus:ring-0 p-0 resize-none custom-scrollbar cursor-text"
+                              rows={2}
+                            />
+                            <button
+                              onClick={() => deleteChallenge(c.id)}
+                              className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer opacity-0 group-hover/item:opacity-100"
+                              title="Xoá thử thách"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                           <div className="flex items-center gap-4">
                             <div className="flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-lg">
                               <Timer className="w-3 h-3 text-indigo-600" />
